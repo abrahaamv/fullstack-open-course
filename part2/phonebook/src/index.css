@@ -1,0 +1,25 @@
+.error {
+    width: 80%;
+    padding: 10px;
+    margin: auto;
+    background-color: lightgrey;
+    border-style: solid;
+    border-radius: 5px;
+    font-style: italic;
+    color: red;
+    font-size: 20px;
+    margin-bottom: 10px;
+}
+
+.success {
+    width: 80%;
+    padding: 10px;
+    margin: auto;
+    background-color: lightgrey;
+    border-style: solid;
+    border-radius: 5px;
+    font-style: italic;
+    color: green;
+    font-size: 20px;
+    margin-bottom: 10px;
+}
