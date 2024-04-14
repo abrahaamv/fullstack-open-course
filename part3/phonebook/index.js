@@ -1,22 +1,18 @@
 require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
-const morgan = require('morgan')
-const Person = require('./models/person')
 const requestLogger = require('./helpers/requestLogger')
+const morganLogger = require('./helpers/morganLogger')
+const unknownEndpointHandler = require('./helpers/unknownEndpointHandler')
 const errorHandler = require('./helpers/errorHandler')
+const Person = require('./models/person')
 
 const app = express()
 app.use(express.json())
 app.use(cors())
 app.use(express.static('dist'))
-
 app.use(requestLogger)
-
-morgan.token('body', function (req, res) { return JSON.stringify(req.body) })
-app.use(morgan(':method :url :status :res[content-length] - :response-time ms :body'))
-
-const unknownEndpoint = (req, res) => res.status(404).end()
+app.use(morganLogger)
 
 app.get('/info', (req, res, next) => {
   Person.find({})
@@ -40,9 +36,8 @@ app.get('/api/persons/:id', (req, res, next) => {
     .catch(error => next(error))
 })
 
-app.post('/api/persons/', (req, res) => {
+app.post('/api/persons/', (req, res, next) => {
   const newPerson = req.body
-  if (!newPerson.name || !newPerson.number) { return res.status(404).json({ error: 'Both name and number are required' }) }
   Person.findOne({ name: newPerson.name })
     .then(result => {
       if (result) { return res.status(400).json({ error: 'Name must be unique' }) } else {
@@ -53,13 +48,14 @@ app.post('/api/persons/', (req, res) => {
 
         person.save()
           .then(savedPerson => res.send(savedPerson))
+          .catch(error => next(error))
       }
     })
 })
 
 app.put('/api/persons/:id', (req, res, next) => {
   const updatedPerson = req.body
-  Person.findByIdAndUpdate(req.params.id, updatedPerson, { new: true })
+  Person.findByIdAndUpdate(req.params.id, updatedPerson, { new: true, runValidators: true, context: 'query' })
     .then(updatedPerson => {
       if (updatedPerson) { res.json(updatedPerson) } else { res.status(404).send() }
     })
@@ -72,7 +68,7 @@ app.delete('/api/persons/:id', (req, res, next) => {
     .catch(error => next(error))
 })
 
-app.use(unknownEndpoint)
+app.use(unknownEndpointHandler)
 app.use(errorHandler)
 
 const PORT = process.env.PORT
