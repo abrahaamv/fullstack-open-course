@@ -10,7 +10,7 @@ const Person = require('./models/person')
 const app = express()
 app.use(express.json())
 app.use(cors())
-app.use(express.static('dist'))
+app.use(express.static('./dist'))
 app.use(requestLogger)
 app.use(morganLogger)
 
@@ -47,10 +47,11 @@ app.post('/api/persons/', (req, res, next) => {
         })
 
         person.save()
-          .then(savedPerson => res.send(savedPerson))
+          .then(savedPerson => res.json(savedPerson))
           .catch(error => next(error))
       }
     })
+    .catch(error => next(error))
 })
 
 app.put('/api/persons/:id', (req, res, next) => {
