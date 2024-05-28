@@ -1,15 +1,16 @@
+require('dotenv').config()
 const logger = require('./logger')
 const morgan = require('morgan')
 
 const requestLogger = (request, response, next) => {
-  logger.info('-------------------------')
-  logger.info('##########################')
-  logger.info('----- REQUEST LOGGER -----')
+  logger.info('')
+  logger.info('REQUEST LOGGER:')
   logger.info('')
   logger.info('method: ', request.method)
   logger.info('path:   ', request.path)
   logger.info('body:   ', request.body)
   logger.info('')
+  logger.info('_____________________________________')
 
   next()
 }
