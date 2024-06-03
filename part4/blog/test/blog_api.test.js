@@ -1,50 +1,134 @@
-const { test, describe } = require('node:test')
+const { beforeEach, describe, test, after } = require('node:test')
 const assert = require('node:assert')
-const { emptyBlog, listWithOneBlog, blogs } = require('./list_helper')
-const listHelper = require('../helpers/list_helper')
+const mongoose = require('mongoose')
+const supertest = require('supertest')
+const app = require('../app')
+const api = supertest(app)
 
-describe('total likes', () => {
-  test('dummy returns one', () => {
-    const result = listHelper.dummy(emptyBlog)
-    assert.strictEqual(result, 1)
+const helper = require('./blog_api_helper')
+const Blog = require('../models/blog')
+
+beforeEach(async () => {
+  await Blog.deleteMany({})
+  const blogsObjects = helper.blogs.map(blog => new Blog(blog))
+  const promiseArray = blogsObjects.map(blog => blog.save())
+  await Promise.all(promiseArray)
+})
+
+describe('GET /api/blogs', () => {
+  test('All blogs are returned as JSON', async () => {
+    const blogs = await api
+      .get('/api/blogs')
+      .expect(200)
+      .expect('Content-Type', /application\/json/)
+
+    assert(blogs.body.length, helper.blogs.length)
   })
 
-  test('of empty list is zero', () => {
-    const result = listHelper.totalLikes(emptyBlog)
-    assert.strictEqual(result, 0)
+  test('Identifier property is named: id', async () => {
+    const blogs = await helper.blogsInDb()
+    assert(Object.getOwnPropertyDescriptor(blogs[0], 'id'))
+  })
+})
+
+describe('POST /api/blogs', () => {
+  test('blog is saved successfully', async () => {
+    const blogsAtStart = await helper.blogsInDb()
+
+    const newBlog = {
+      title: 'Developer essentials: JavaScript console methods',
+      author: 'Brian Smith',
+      url: 'https://developer.mozilla.org/en-US/blog/learn-javascript-console-methods/',
+      likes: 7
+    }
+    await api
+      .post('/api/blogs')
+      .send(newBlog)
+      .expect(201)
+      .expect('Content-Type', /application\/json/)
+
+    const blogsAtEnd = await helper.blogsInDb()
+    const blogsTitles = blogsAtEnd.map(blog => blog.title)
+
+    assert.strictEqual(blogsAtEnd.length, blogsAtStart.length + 1)
+    assert(blogsTitles.includes(newBlog.title))
   })
 
-  test('when list has only one blog equals the likes of that', () => {
-    const result = listHelper.totalLikes(listWithOneBlog)
-    assert.strictEqual(result, listWithOneBlog[0].likes)
-  })
-
-  test('of  bigger list is calculated right', () => {
-    const result = listHelper.totalLikes(blogs)
-    assert.strictEqual(result, 59)
-  })
-
-  test('of most liked blog', () => {
-    const result = listHelper.favoriteBlog(blogs)
-
-    const mostLikedPost = {
-      title: 'TDD harms architecture',
-      author: 'Robert C. Martin',
-      likes: 23
+  test('If likes property is missing, 0 is the default value', async () => {
+    const newBlog = {
+      title: 'Developer essentials: JavaScript console methods',
+      author: 'Brian Smith',
+      url: 'https://developer.mozilla.org/en-US/blog/learn-javascript-console-methods/'
     }
 
-    assert.deepStrictEqual(result, mostLikedPost)
+    const savedBlog = await api
+      .post('/api/blogs')
+      .send(newBlog)
+      .expect(201)
+      .expect('Content-Type', /application\/json/)
+
+    assert.strictEqual(savedBlog.body.likes, 0)
+  })
+
+  test('Blog will not be saved if title or url properties are missing', async () => {
+    const blogsAtStart = await helper.blogsInDb()
+
+    const noTitleBlog = {
+      author: 'Brian Smith',
+      url: 'https://developer.mozilla.org/en-US/blog/learn-javascript-console-methods/',
+      likes: 10
+    }
+
+    const noUrlBlog = {
+      title: 'Developer essentials: JavaScript console methods',
+      author: 'Brian Smith',
+      likes: 10
+    }
+
+    await api
+      .post('/api/blogs')
+      .send(noTitleBlog)
+      .expect(400)
+
+    await api
+      .post('/api/blogs')
+      .send(noUrlBlog)
+      .expect(400)
+
+    const blogsAtEnd = await helper.blogsInDb()
+
+    assert(blogsAtStart.length, blogsAtEnd.length)
   })
 })
 
-test('most blogs', () => {
-  const result = listHelper.mostBlogs(blogs)
-  const mostBlogs = { author: 'Robert C. Martin', blogs: 3 }
-  assert.deepStrictEqual(result, mostBlogs)
+describe('DELETE /api/blogs', () => {
+  test('especific blog can be deleted', async () => {
+    const blogs = await helper.blogsInDb()
+    await api
+      .delete(`/api/blogs/${blogs[0].id}`)
+      .expect(204)
+    const blogsAtEnd = await helper.blogsInDb()
+
+    assert.strictEqual(blogsAtEnd.length, blogs.length - 1)
+    assert(!blogsAtEnd.map(blog => blog.title).includes(blogs[0].title))
+  })
 })
 
-test('most liked author', () => {
-  const result = listHelper.mostLikes(blogs)
-  const mostLikedAuthor = { author: 'Robert C. Martin', likes: 35 }
-  assert.deepStrictEqual(result, mostLikedAuthor)
+describe('PATCH /api/blogs', () => {
+  test('specific blog can be updated', async () => {
+    const blogs = await helper.blogsInDb()
+    await api
+      .patch(`/api/blogs/${blogs[0].id}`)
+      .send({ likes: blogs[0].likes + 1 })
+      .expect(200)
+      .expect('Content-Type', /application\/json/)
+
+    const blogsAtEnd = await helper.blogsInDb()
+
+    assert.strictEqual(blogsAtEnd[0].likes, blogs[0].likes + 1)
+  })
+})
+
+after(async () => {
+  await mongoose.connection.close()
 })

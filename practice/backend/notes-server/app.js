@@ -5,6 +5,7 @@ const express = require('express')
 const cors = require('cors')
 const mongoose = require('mongoose')
 const notesRouter = require('./controllers/notes')
+const usersRouter = require('./controllers/users')
 const logger = require('./utils/logger')
 const {
   requestLogger,
@@ -27,6 +28,7 @@ app.use(cors())
 app.use(requestLogger)
 if (process.env.NODE_ENV !== 'test') { app.use(morganLogger) }
 app.use('/api/notes', notesRouter)
+app.use('/api/users', usersRouter)
 app.use(unknownEndpointHandler)
 app.use(errorHandler)
 

@@ -17,18 +17,20 @@ blogRouter.get('/:id', async (req, res) => {
 
 blogRouter.post('/', async (req, res) => {
   const newBlog = req.body
+  if (!newBlog.title || !newBlog.url) { return res.status(400).end() }
+
   const blog = await Blog.findOne({ title: newBlog.title })
   if (blog) { return res.status(400).json({ error: 'title already exists' }) } else {
     const blog = new Blog({
       title: newBlog.title,
       author: newBlog.author,
       url: newBlog.url,
-      likes: newBlog.likes
+      likes: newBlog.likes || 0
     })
 
     const savedBlog = await blog.save()
     savedBlog
-      ? res.send(savedBlog)
+      ? res.status(201).json(savedBlog)
       : res.status(400).end()
   }
 })
